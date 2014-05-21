@@ -46,10 +46,49 @@
 
                     await chatHubProxy1.Invoke<string>("Send", "Hello");
 
-                    if (await Task.WhenAny(tcs.Task, Task.Delay(15000)) != tcs.Task)
+                    if (await Task.WhenAny(tcs.Task, Task.Delay(5000)) != tcs.Task)
                     {
                         throw new TimeoutException("Timed out waiting for message");
                     }
+                }
+            }
+        }
+
+
+        [Fact]
+        public async Task Non_scale_out_should_actually_work()
+        {
+            const string serverUrl1 = "http://localhost:8180";
+
+            Action<IAppBuilder> appBuilder = app =>
+            {
+                var resolver = new DefaultDependencyResolver();
+                //resolver.UseNetMQServiceBus(config);
+                var hubConfiguration = new HubConfiguration
+                {
+                    Resolver = resolver
+                };
+                app.MapSignalR(hubConfiguration);
+            };
+
+            using (WebApp.Start(serverUrl1, appBuilder))
+            {
+                var tcs = new TaskCompletionSource<string>();
+                const string hubName = "ChatHub";
+                var hubConnection1 = new HubConnection(serverUrl1);
+                IHubProxy chatHubProxy1 = hubConnection1.CreateHubProxy(hubName);
+                await hubConnection1.Start();
+
+                var hubConnection2 = new HubConnection(serverUrl1);
+                IHubProxy chatHubProxy2 = hubConnection2.CreateHubProxy(hubName);
+                chatHubProxy2.On<string>("broadcastMessage", tcs.SetResult);
+                await hubConnection2.Start();
+
+                await chatHubProxy1.Invoke<string>("Send", "Hello");
+
+                if (await Task.WhenAny(tcs.Task, Task.Delay(5000)) != tcs.Task)
+                {
+                    throw new TimeoutException("Timed out waiting for message");
                 }
             }
         }
