@@ -14,6 +14,12 @@ namespace Microsoft.AspNet.SignalR.Infrastructure
     {
         private readonly object _lockObj = new object();
         private Task _lastQueuedTask;
+
+        // This is used by the TaskQueueMonitor in the .NET client so it can
+        // watch for suspected deadlocks in user code. We never want to set this
+        // to "initialTask" since that doesn't represent user code running.
+        private Task _executingTask;
+
         private volatile bool _drained;
         private readonly int? _maxSize;
         private long _size;
@@ -50,6 +56,15 @@ namespace Microsoft.AspNet.SignalR.Infrastructure
         }
 
         [SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode", Justification = "This is shared code")]
+        public Task ExecutingTask
+        {
+            get
+            {
+                return _executingTask;
+            }
+        }
+
+        [SuppressMessage("Microsoft.Performance", "CA1811:AvoidUncalledPrivateCode", Justification = "This is shared code")]
         public Task Enqueue(Func<object, Task> taskFunc, object state)
         {
             // Lock the object for as short amount of time as possible
@@ -80,16 +95,18 @@ namespace Microsoft.AspNet.SignalR.Infrastructure
 #endif
                 }
 
-                Task newTask = _lastQueuedTask.Then((n, ns, q) => InvokeNext(n, ns, q), taskFunc, state, this);
+                Task newTask = _lastQueuedTask.Then((n, ns, q) => q.InvokeNext(n, ns), taskFunc, state, this);
 
                 _lastQueuedTask = newTask;
                 return newTask;
             }
         }
 
-        private static Task InvokeNext(Func<object, Task> next, object nextState, object queueState)
+        private Task InvokeNext(Func<object, Task> next, object nextState)
         {
-            return next(nextState).Finally(s => Dequeue(s), queueState);
+            // No need for a local variable since calls to InvokeNext can never overlap
+            _executingTask = next(nextState);
+            return _executingTask.Finally(s => Dequeue(s), this);
         }
 
         private static void Dequeue(object queueState)
