@@ -44,12 +44,15 @@
                     chatHubProxy2.On<string>("broadcastMessage", tcs.SetResult);
                     await hubConnection2.Start();
 
-                    await chatHubProxy1.Invoke<string>("Send", "Hello");
+                    string expectedMessage = "Hello";
+                    await chatHubProxy1.Invoke<string>("Send", expectedMessage);
 
                     if (await Task.WhenAny(tcs.Task, Task.Delay(5000)) != tcs.Task)
                     {
                         throw new TimeoutException("Timed out waiting for message");
                     }
+
+                    Assert.Equal(expectedMessage, (await tcs.Task));
                 }
             }
         }

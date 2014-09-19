@@ -6,12 +6,12 @@
 
     public class NetMQScaleoutConfiguration : ScaleoutConfiguration
     {
-        private readonly string publisherAddress;
+        private readonly string _publisherAddress;
         private readonly string[] _subscriberAddresses;
 
         public NetMQScaleoutConfiguration(string publisherAddress, IEnumerable<string> subscriberAddresses)
         {
-            publisherAddress = publisherAddress;
+            _publisherAddress = publisherAddress;
             _subscriberAddresses = subscriberAddresses.ToArray();
         }
 
@@ -22,7 +22,7 @@
 
         public string PublisherAddress
         {
-            get { return publisherAddress; }
+            get { return _publisherAddress; }
         }
     }
 }
