@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNet.SignalR.Infrastructure;
@@ -39,19 +41,19 @@ namespace Microsoft.AspNet.SignalR.Client.Http
             }
         }
 
-        public static Task<HttpWebResponse> GetAsync(string url, Action<HttpWebRequest> requestPreparer)
+        public static Task<HttpResponseMessage> GetAsync(HttpClient client, string url, Action<HttpRequestMessage> requestPreparer)
         {
-            HttpWebRequest request = CreateWebRequest(url);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url);
             if (requestPreparer != null)
             {
                 requestPreparer(request);
             }
-            return request.GetHttpResponseAsync();
+            return client.SendAsync(request);
         }
 
-        public static Task<HttpWebResponse> PostAsync(string url, Action<HttpWebRequest> requestPreparer, IDictionary<string, string> postData)
+        public static Task<HttpResponseMessage> PostAsync(HttpClient client, string url, Action<HttpRequestMessage> requestPreparer, IDictionary<string, string> postData)
         {
-            HttpWebRequest request = CreateWebRequest(url);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, url);
 
             if (requestPreparer != null)
             {
@@ -60,22 +62,18 @@ namespace Microsoft.AspNet.SignalR.Client.Http
 
             byte[] buffer = ProcessPostData(postData);
 
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
+            request.Method = HttpMethod.Post;
+            request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded");
 
             // Set the content length if the buffer is non-null
-            request.ContentLength = buffer != null ? buffer.LongLength : 0;
+            request.Content.Headers.ContentLength = buffer != null ? buffer.LongLength : 0;
 
-            if (buffer == null)
+            if (buffer != null)
             {
-                // If there's nothing to be written to the request then just get the response
-                return request.GetHttpResponseAsync();
+                request.Content = new ByteArrayContent(buffer);
             }
 
-            // Write the post data to the request stream
-            return request.GetHttpRequestStreamAsync()
-                .Then(stream => stream.WriteAsync(buffer).Then(() => stream.Dispose()))
-                .Then(() => request.GetHttpResponseAsync());
+            return client.SendAsync(request);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Globalization", "CA1305:SpecifyIFormatProvider", MessageId = "System.Text.StringBuilder.AppendFormat(System.String,System.Object[])", Justification = "This will never be localized.")]
@@ -105,11 +103,5 @@ namespace Microsoft.AspNet.SignalR.Client.Http
             return Encoding.UTF8.GetBytes(sb.ToString());
         }
 
-        private static HttpWebRequest CreateWebRequest(string url)
-        {
-            HttpWebRequest request = null;
-            request = (HttpWebRequest)WebRequest.Create(url);
-            return request;
-        }
     }
 }

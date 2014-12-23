@@ -4,11 +4,77 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNet.SignalR.Infrastructure;
 
 namespace Microsoft.AspNet.SignalR.Client.Http
 {
+
+    public class HttpRequestMessageWrapper : IRequest
+    {
+        private readonly HttpRequestMessage _httpRequestMessage;
+        private readonly Action _cancel;
+
+        public HttpRequestMessageWrapper(HttpRequestMessage httpRequestMessage, Action cancel)
+        {
+            _httpRequestMessage = httpRequestMessage;
+            _cancel = cancel;
+
+            
+        }
+
+        public string UserAgent { get; set; }
+
+        public string Accept { get; set; }
+        public CookieContainer CookieContainer { get; set; }
+
+        public void Abort()
+        {
+            _cancel();
+        }
+
+        public void SetRequestHeaders(IDictionary<string, string> headers)
+        {
+            if (headers == null)
+            {
+                throw new ArgumentNullException("headers");
+            }
+
+            if (UserAgent != null)
+            {
+                _httpRequestMessage.Headers.TryAddWithoutValidation("User-Agent", UserAgent);
+            }
+
+            if (Accept != null)
+            {
+                _httpRequestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(Accept));
+            }
+
+            foreach (KeyValuePair<string, string> headerEntry in headers)
+            {
+                _httpRequestMessage.Headers.Add(headerEntry.Key, headerEntry.Value);
+            }
+        }
+        
+        public void AddClientCerts(X509CertificateCollection certificates)
+        {
+            
+            if (certificates == null)
+            {
+                throw new ArgumentNullException("certificates");
+            }
+            
+            // Todo: Certificates
+            // Mono hasn't implemented client certs
+            if (!MonoUtility.IsRunningMono)
+            {
+//                _httpRequestMessage.Content.Headers..ClientCertificates = certificates;
+            }
+        }
+    }
+
     public class HttpWebRequestWrapper : IRequest
     {
         private readonly HttpWebRequest _request;

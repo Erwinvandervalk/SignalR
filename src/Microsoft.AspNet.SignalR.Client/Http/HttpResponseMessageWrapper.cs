@@ -3,22 +3,23 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Microsoft.AspNet.SignalR.Client.Http
 {
-    public class HttpWebResponseWrapper : IResponse
+    public class HttpResponseMessageWrapper : IResponse
     {
-        private readonly HttpWebResponse _response;
+        private readonly HttpResponseMessage _response;
 
-        public HttpWebResponseWrapper(HttpWebResponse response)
+        public HttpResponseMessageWrapper(HttpResponseMessage response)
         {
             _response = response;
         }
 
         public Stream GetStream()
         {
-            return _response.GetResponseStream();
+            return _response.Content.ReadAsStreamAsync().Result;
         }
 
         protected virtual void Dispose(bool disposing)
